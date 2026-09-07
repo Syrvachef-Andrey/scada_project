@@ -1,0 +1,53 @@
+import serial
+import time
+
+
+class RobotSerial:
+    def __init__(self, port, baudrate=115200):
+        try:
+            self.arduino = serial.Serial(port, baudrate, timeout=1)
+            print(f"Подключено к Arduino на порту {port}.")
+            time.sleep(2)
+        except Exception as e:
+            print(f"Ошибка подключения к Arduino: {e}")
+            print("Arduino не найдено, выход из программы")
+            exit()
+
+    def send_angles(self, angles_list, gripper_angle):
+        if not self.arduino:
+            print("Нет соединения с Arduino. Данные не отправлены.")
+            return
+
+        # Формируем строку: "90,90,90,90,90,45\n"
+        # angles_list содержит 5 элементов
+        full_command = [str(a) for a in angles_list] + [str(gripper_angle)]
+        data_string = ",".join(full_command) + "\n"
+
+        self.arduino.write(data_string.encode('utf-8'))
+        # print(f"Отправлено: {data_string.strip()}")
+
+        response = self.arduino.readline().decode('utf-8', errors='ignore').strip()
+
+        if response.isdigit():
+            return int(response)
+        else:
+            return None
+
+    def send_command_by_radio(self, radio_command):
+        if not self.arduino:
+            print("Нет соединения с Arduino. Радиокоманда не отправлена.")
+            return None
+
+        # Формируем пакет: "RADIO:MOVE:20\n"
+        full_command = f"RADIO:{radio_command}\n"
+        self.arduino.write(full_command.encode('utf-8'))
+        print(f"-> [RADIO MASTER] Отправка команды в эфир: {radio_command}")
+
+        # Читаем статус отправки (RADIO_TX_OK или RADIO_TX_FAIL)
+        response = self.arduino.readline().decode('utf-8', errors='ignore').strip()
+        print(f"<- [RADIO MASTER] Статус: {response}")
+        return response
+
+    def close(self):
+        if self.arduino:
+            self.arduino.close()
